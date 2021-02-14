@@ -3,6 +3,7 @@ use std::convert::TryInto;
 use std::any::Any;
 use std::fs;
 use crate::constants::*;
+use enum_as_inner::EnumAsInner;
 
 // bytes definition for jvm_spec naming
 pub type u1 = u8;
@@ -93,7 +94,7 @@ pub struct ClassFile {
     pub(crate) minor_version: u2,
     pub(crate) major_version: u2,
     pub(crate) constant_pool_count: u2,
-    pub(crate) constant_pool: Vec<ConstantPoolInfo>,
+    pub(crate) constant_pool: ConstantPool,
     pub(crate) access_flags: u2,
     pub(crate) this_class: u2,
     pub(crate) super_class: u2,
@@ -114,7 +115,7 @@ impl ClassFile {
         let minor_version = buffer.u2();
         let major_version = buffer.u2();
         let constant_pool_count = buffer.u2();
-        let constant_pool = ConstantPoolInfo::with_capacity(buffer, constant_pool_count);
+        let constant_pool = ConstantPool::from(buffer, constant_pool_count);
         let access_flags = buffer.u2();
         let this_class = buffer.u2();
         let super_class = buffer.u2();
@@ -147,12 +148,46 @@ impl ClassFile {
     }
 }
 
+pub struct ConstantPool(pub Vec<ConstantPoolInfo>);
+
+impl ConstantPool {
+    fn from(buffer: &mut Buffer, constant_pool_count: u2) -> Self {
+        let mut constant_pool = Vec::<ConstantPoolInfo>::with_capacity(constant_pool_count as usize);
+        constant_pool.push(ConstantPoolInfo::Unknown);
+        (1..constant_pool_count).for_each(|_| constant_pool.push(ConstantPoolInfo::from(buffer)));
+        ConstantPool(constant_pool)
+    }
+
+    pub(crate) fn resolve_name_and_type(&self, name_and_type_index: u16) -> (String, String) {
+        match &self.0[name_and_type_index as usize] {
+            ConstantPoolInfo::NameAndType(name_and_type_info) =>
+                (self.resolve_utf8(name_and_type_info.name_index), self.resolve_utf8(name_and_type_info.descriptor_index)),
+            _ => panic!("name_and_type constant is not indexed as a NameAndType")
+        }
+    }
+
+    pub(crate) fn resolve_utf8(&self, utf8_index: u16) -> String {
+        match &self.0[utf8_index as usize] {
+            ConstantPoolInfo::Utf8(utf8_info) => String::from_utf8(utf8_info.bytes.clone()).unwrap(),
+            _ => panic!("utf8 constant is not indexed as a utf8")
+        }
+    }
+
+    pub(crate) fn resolve_class(&self, class_index: u16) -> String {
+        match &self.0[class_index as usize] {
+            ConstantPoolInfo::Class(class_info) => self.resolve_utf8(class_info.name_index),
+            _ => panic!("class constant is not indexed as a Class")
+        }
+    }
+}
+
 /*
 cp_info {
     u1 tag;
     u1 info[];
 }
 */
+#[derive(EnumAsInner)]
 pub enum ConstantPoolInfo {
     Unknown, // not used as 1st one
     Class(ConstantClassInfo),
@@ -172,13 +207,6 @@ pub enum ConstantPoolInfo {
 }
 
 impl ConstantPoolInfo {
-    fn with_capacity(buffer: &mut Buffer, constant_pool_count: u2) -> Vec<Self> {
-        let mut constant_pool = Vec::<ConstantPoolInfo>::with_capacity(constant_pool_count as usize);
-        constant_pool.push(ConstantPoolInfo::Unknown);
-        (1..constant_pool_count).for_each(|_| constant_pool.push(ConstantPoolInfo::from(buffer)));
-        constant_pool
-    }
-
     fn from(buffer: &mut Buffer) -> Self {
         let tag = buffer.u1();
         match tag {
@@ -491,7 +519,7 @@ pub struct FieldInfo {
 }
 
 impl FieldInfo {
-    fn from(buffer: &mut Buffer, constant_pool: &Vec<ConstantPoolInfo>) -> Self {
+    fn from(buffer: &mut Buffer, constant_pool: &ConstantPool) -> Self {
         let access_flags = buffer.u2();
         let name_index = buffer.u2();
         let descriptor_index = buffer.u2();
@@ -506,7 +534,7 @@ impl FieldInfo {
         }
     }
 
-    fn with_capacity(buffer: &mut Buffer, constant_pool: &Vec<ConstantPoolInfo>, fields_count: u2) -> Vec<Self> {
+    fn with_capacity(buffer: &mut Buffer, constant_pool: &ConstantPool, fields_count: u2) -> Vec<Self> {
         (0..fields_count).map(|_| FieldInfo::from(buffer, &constant_pool)).collect()
     }
 }
@@ -529,7 +557,7 @@ method_info {
 }
 */
 impl MethodInfo {
-    fn from(buffer: &mut Buffer, constant_pool: &Vec<ConstantPoolInfo>) -> Self {
+    fn from(buffer: &mut Buffer, constant_pool: &ConstantPool) -> Self {
         let access_flags = buffer.u2();
         let name_index = buffer.u2();
         let descriptor_index = buffer.u2();
@@ -544,7 +572,7 @@ impl MethodInfo {
         }
     }
 
-    fn with_capacity(buffer: &mut Buffer, constant_pool: &Vec<ConstantPoolInfo>, method_count: u2) -> Vec<Self> {
+    fn with_capacity(buffer: &mut Buffer, constant_pool: &ConstantPool, method_count: u2) -> Vec<Self> {
         (0..method_count).map(|_| MethodInfo::from(buffer, &constant_pool)).collect()
     }
 }
@@ -556,6 +584,7 @@ attribute_info {
     u1 info[attribute_length];
 }
 */
+#[derive(EnumAsInner)]
 pub enum AttributeInfo {
     Unknown,
     Code(CodeAttribute),
@@ -566,17 +595,10 @@ pub enum AttributeInfo {
 }
 
 impl AttributeInfo {
-    fn from(buffer: &mut Buffer, constant_pool: &Vec<ConstantPoolInfo>) -> Self {
+    fn from(buffer: &mut Buffer, constant_pool: &ConstantPool) -> Self {
         let attribute_name_index = buffer.u2();
         let attribute_length = buffer.u4();
-        let const_pool_info = &constant_pool[attribute_name_index as usize];
-        let attribute_name = match const_pool_info {
-            ConstantPoolInfo::Utf8(utf8) => utf8.value(),
-            _ => {
-                println!("not a utf8 attribute name");
-                "".to_string()
-            }
-        };
+        let attribute_name = constant_pool.resolve_utf8(attribute_name_index);
         match attribute_name.as_str() {
             "Code" => {
                 let max_stack= buffer.u2();
@@ -665,7 +687,7 @@ impl AttributeInfo {
         }
     }
 
-    fn with_capacity(buffer: &mut Buffer, constant_pool: &Vec<ConstantPoolInfo>, attributes_count: u2) -> Vec<Self> {
+    fn with_capacity(buffer: &mut Buffer, constant_pool: &ConstantPool, attributes_count: u2) -> Vec<Self> {
         (0..attributes_count).map(|_| AttributeInfo::from(buffer, constant_pool)).collect()
     }
 }

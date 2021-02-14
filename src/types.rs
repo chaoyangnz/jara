@@ -4,8 +4,9 @@ use crate::constants::{FieldAccessFlag, JVM_SIGNATURE_CLASS, JVM_SIGNATURE_ENDCL
 use crate::values::Value;
 use crate::class_file::*;
 use crate::constants::*;
+use enum_as_inner::EnumAsInner;
 
-
+#[derive(EnumAsInner)]
 pub(crate) enum Type {
     Byte,
     Short,
@@ -73,9 +74,9 @@ pub struct Class {
     pub(crate) dimensions:    i32,
 
     // status flags
-    pub(crate) defined: bool,
-    pub(crate) linked:  bool,
-    pub(crate) initialized: i32,
+    pub(crate) defined: bool, // once read from classfile
+    pub(crate) linked:  bool, // once resolve Ref symbols
+    pub(crate) initialized: i32, // once call <clinit>
 
     // after linked
     pub(crate) super_class: Rc<Class>, // to be resolved
@@ -92,7 +93,7 @@ fn uninitialized_class() -> Rc<Class> {
 impl Class {
     pub(crate) fn from(classfile: &ClassFile) -> Self {
         let cp =  &classfile.constant_pool;
-        let constant_pool_len = classfile.constant_pool.len();
+        let constant_pool_len = classfile.constant_pool_count as usize;
         let constant_pool= (0..constant_pool_len).map(|i| Constant::from(i, cp)).collect();
         let mut field_slot = 0;
         let fields = classfile.fields.iter().map(|field_info| {
@@ -100,8 +101,8 @@ impl Class {
             field_slot += 1;
             Field {
                 access_flags: field_info.access_flags,
-                name: Constant::resolve_utf8(field_info.name_index, cp),
-                descriptor: Constant::resolve_utf8(field_info.descriptor_index, cp),
+                name: cp.resolve_utf8(field_info.name_index),
+                descriptor: cp.resolve_utf8(field_info.descriptor_index),
                 class: uninitialized_class(),
                 slot
             }
@@ -123,8 +124,8 @@ impl Class {
             let code_attribute = code_attribute_option.unwrap();
             Method {
                 access_flags: method_info.access_flags,
-                name: Constant::resolve_utf8(method_info.name_index, cp),
-                descriptor: Constant::resolve_utf8(method_info.descriptor_index, cp),
+                name: cp.resolve_utf8(method_info.name_index),
+                descriptor: cp.resolve_utf8(method_info.descriptor_index),
                 class: uninitialized_class(),
                 max_stack: code_attribute.max_stack as u32,
                 max_locals: code_attribute.max_locals as u32,
@@ -138,10 +139,10 @@ impl Class {
         }).collect();
         Class {
             constant_pool,
-            name: Constant::resolve_class(classfile.this_class, cp),
+            name: cp.resolve_class(classfile.this_class),
             access_flags: 0,
-            super_class_name: Constant::resolve_class(classfile.super_class, cp),
-            interface_names: classfile.interfaces.iter().map(|interface| Constant::resolve_class(*interface, cp)).collect(),
+            super_class_name: cp.resolve_class(classfile.super_class),
+            interface_names: classfile.interfaces.iter().map(|interface| cp.resolve_class(*interface)).collect(),
             super_class: uninitialized_class(),
             interfaces: vec![],
             fields,
@@ -193,6 +194,7 @@ pub struct Method {
     return_descriptor:     Vec<String>
 }
 
+#[derive(EnumAsInner)]
 pub enum Constant {
     Unknown,
     Integer(i32),
@@ -209,13 +211,13 @@ pub enum Constant {
 }
 
 impl Constant {
-    fn from(index: usize, constant_pool: &Vec<ConstantPoolInfo>) -> Self {
-        match &constant_pool[index] {
+    fn from(index: usize, constant_pool: &ConstantPool) -> Self {
+        match &constant_pool.0[index] {
             ConstantPoolInfo::Unknown => Constant::Unknown,
             ConstantPoolInfo::Utf8(utf8_info) =>
-                Constant::Utf8(Constant::resolve_utf8(index as u16, constant_pool)),
+                Constant::Utf8(constant_pool.resolve_utf8(index as u16)),
             ConstantPoolInfo::String(string_info) =>
-                Constant::String(Constant::resolve_utf8(string_info.string_index, constant_pool)),
+                Constant::String(constant_pool.resolve_utf8(string_info.string_index)),
             ConstantPoolInfo::Integer(integer_info) =>
                 Constant::Integer(i32::from_be_bytes(integer_info.bytes.to_be_bytes())),
             ConstantPoolInfo::Float(float_info) =>
@@ -226,21 +228,21 @@ impl Constant {
                 Constant::Double(f64::from_be_bytes(((double_info.high_bytes as u64) << 32 | double_info.low_bytes as u64).to_be_bytes())),
             ConstantPoolInfo::NameAndType(name_and_type_info) =>
                 Constant::NameAndType {
-                    name: Constant::resolve_utf8(name_and_type_info.name_index, constant_pool),
-                    descriptor: Constant::resolve_utf8(name_and_type_info.descriptor_index, constant_pool)
+                    name: constant_pool.resolve_utf8(name_and_type_info.name_index),
+                    descriptor: constant_pool.resolve_utf8(name_and_type_info.descriptor_index)
                 },
             ConstantPoolInfo::Class(class_info) =>
-                Constant::Class(Constant::resolve_utf8(class_info.name_index, constant_pool)),
+                Constant::Class(constant_pool.resolve_utf8(class_info.name_index)),
             ConstantPoolInfo::FieldRef(field_ref) => {
-                let (name, descriptor) = Constant::resolve_name_and_type(field_ref.name_and_type_index, constant_pool);
+                let (name, descriptor) = constant_pool.resolve_name_and_type(field_ref.name_and_type_index);
                 Constant::FieldRef(name, descriptor)
             }
             ConstantPoolInfo::MethodRef(method_ref) => {
-                let (name, descriptor) = Constant::resolve_name_and_type(method_ref.name_and_type_index, constant_pool);
+                let (name, descriptor) = constant_pool.resolve_name_and_type(method_ref.name_and_type_index);
                 Constant::MethodRef(name, descriptor)
             }
             ConstantPoolInfo::MethodType(method_type) =>
-                Constant::MethodType(Constant::resolve_utf8(method_type.descriptor_index, constant_pool)),
+                Constant::MethodType(constant_pool.resolve_utf8(method_type.descriptor_index)),
             // ConstantPoolInfo::InterfaceMethodRef(_) => {}
             // ConstantPoolInfo::MethodHandle(_) => {}
             // ConstantPoolInfo::InvokeDynamic(_) => {}
@@ -251,27 +253,7 @@ impl Constant {
         }
     }
 
-    fn resolve_name_and_type(name_and_type_index: u16, constant_pool: &Vec<ConstantPoolInfo>) -> (String, String) {
-        match &constant_pool[name_and_type_index as usize] {
-            ConstantPoolInfo::NameAndType(name_and_type_info) =>
-                (Constant::resolve_utf8(name_and_type_info.name_index, constant_pool), Constant::resolve_utf8(name_and_type_info.descriptor_index, constant_pool)),
-            _ => panic!("name_and_type constant is not indexed as a NameAndType")
-        }
-    }
 
-    fn resolve_utf8(utf8_index: u16, constant_pool: &Vec<ConstantPoolInfo>) -> String {
-        match &constant_pool[utf8_index as usize] {
-            ConstantPoolInfo::Utf8(utf8_info) => String::from_utf8(utf8_info.bytes.clone()).unwrap(),
-            _ => panic!("utf8 constant is not indexed as a utf8")
-        }
-    }
-
-    fn resolve_class(class_index: u16, constant_pool: &Vec<ConstantPoolInfo>) -> String {
-        match &constant_pool[class_index as usize] {
-            ConstantPoolInfo::Class(class_info) => Constant::resolve_utf8(class_info.name_index, constant_pool),
-            _ => panic!("class constant is not indexed as a Class")
-        }
-    }
 }
 
 pub struct ExceptionHandler {

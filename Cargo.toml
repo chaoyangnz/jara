@@ -1,9 +1,10 @@
 [package]
-name = "javor"
+name = "jara"
 version = "0.1.0"
-authors = ["Chao Yang <chao.yang@rakenapp.com>"]
+authors = ["Chao Yang <chao@yang.to>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+enum-as-inner = "0.3.3"
