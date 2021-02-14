@@ -5,27 +5,27 @@ use crate::value::Value;
 
 pub struct Class {
     name: String,
-    accessFlags: u16,
-    superClassName: String,
-    interfaceNames: Vec<String>,
-    superClass: Rc<Class>,
+    access_flags: u16,
+    super_class_name: String,
+    interface_names: Vec<String>,
+    super_class: Rc<Class>,
     interfaces: Vec<Rc<Class>>,
-    constantPool: Vec<Box<Constant>>,
+    constant_pool: Vec<Box<Constant>>,
     fields:       Vec<Field>,
     methods:      Vec<Method>,
 
-    instanceVarsCount: i32,
-    instanceVarFields: Vec<Rc<Field>>,
-    staticVarsCount:   i32,
-    staticVarFields:   Vec<Rc<Field>>,
+    instance_vars_count: i32,
+    instance_var_fields: Vec<Rc<Field>>,
+    static_vars_count:   i32,
+    static_var_fields:   Vec<Rc<Field>>,
 
-    staticVars:        Vec<Box<Value>>,
+    static_vars:        Vec<Box<Value>>,
 
-    sourceFile: String,
+    source_file: String,
 
     // ---- these fields are only for array class -------
-    componentType: Rc<Type>, // any type
-    elementType:   Rc<Type>, // must be not array type
+    component_type: Rc<Type>, // any type
+    element_type:   Rc<Type>, // must be not array type
     dimensions:    i32,
 
     defined: bool,
@@ -48,7 +48,7 @@ impl Type for Class {
 }
 
 pub struct Field {
-    accessFlags: FieldAccessFlag,
+    access_flags: FieldAccessFlag,
     name: String,
     descriptor: String,
     class: Rc<Class>,
@@ -60,20 +60,20 @@ pub struct Field {
 }
 
 pub struct Method {
-    accessFlags: MethodAccessFlag,
+    access_flags: MethodAccessFlag,
     name:        String,
     descriptor:  String,
     class:       Rc<Class>,
 
-    maxStack:    u32,
-    maxLocals:   u32,
+    max_stack:    u32,
+    max_locals:   u32,
     code:        Vec<u8>,             //u4 code_length
     exceptions:  Vec<ExceptionHandler>, //u2 exception_table_length
-    localVars:   Vec<LocalVariable>,
-    lineNumbers: Vec<LineNumber>,
+    local_vars:   Vec<LocalVariable>,
+    line_numbers: Vec<LineNumber>,
 
-    parameterDescriptors: Vec<String>,
-    returnDescriptor:     Vec<String>
+    parameter_descriptors: Vec<String>,
+    return_descriptor:     Vec<String>
 }
 
 pub trait Constant {
@@ -81,15 +81,15 @@ pub trait Constant {
 }
 
 pub struct ExceptionHandler {
-    startPc:   i32,
-    endPc:     i32,
-    handlerPc: i32,
-    catchType: i32 // index of constant pool: ClassRef
+    start_pc:   i32,
+    end_pc:     i32,
+    handler_pc: i32,
+    catch_type: i32 // index of constant pool: ClassRef
 }
 
 pub struct LocalVariable {
     method:     Rc<Method>,
-    startPc:    u16,
+    start_pc:    u16,
     length:     u16,
     index:      u16,
     name:       String,
@@ -97,6 +97,6 @@ pub struct LocalVariable {
 }
 
 pub struct LineNumber {
-    startPc:    i32,
-    lineNumber: i32
+    start_pc:    i32,
+    line_number: i32
 }

@@ -1,17 +1,17 @@
-pub const JVM_TAG_Class              : u8 = 7;
-pub const JVM_TAG_Fieldref           : u8 = 9;
-pub const JVM_TAG_Methodref          : u8 = 10;
-pub const JVM_TAG_InterfaceMethodref : u8 = 11;
-pub const JVM_TAG_String             : u8 = 8;
-pub const JVM_TAG_Integer            : u8 = 3;
-pub const JVM_TAG_Float              : u8 = 4;
-pub const JVM_TAG_Long               : u8 = 5;
-pub const JVM_TAG_Double             : u8 = 6;
-pub const JVM_TAG_NameAndType        : u8 = 12;
-pub const JVM_TAG_Utf8               : u8 = 1;
-pub const JVM_TAG_MethodHandle       : u8 = 15;
-pub const JVM_TAG_MethodType         : u8 = 16;
-pub const JVM_TAG_InvokeDynamic      : u8 = 18;
+pub const JVM_TAG_CLASS                 : u8 = 7;
+pub const JVM_TAG_FIELDREF              : u8 = 9;
+pub const JVM_TAG_METHODREF             : u8 = 10;
+pub const JVM_TAG_INTERFACE_METHODREF   : u8 = 11;
+pub const JVM_TAG_STRING                : u8 = 8;
+pub const JVM_TAG_INTEGER               : u8 = 3;
+pub const JVM_TAG_FLOAT                 : u8 = 4;
+pub const JVM_TAG_LONG                  : u8 = 5;
+pub const JVM_TAG_DOUBLE                : u8 = 6;
+pub const JVM_TAG_NAME_AND_TYPE         : u8 = 12;
+pub const JVM_TAG_UTF8                  : u8 = 1;
+pub const JVM_TAG_METHOD_HANDLE         : u8 = 15;
+pub const JVM_TAG_METHOD_TYPE           : u8 = 16;
+pub const JVM_TAG_INVOKE_DYNAMIC        : u8 = 18;
 
 
 pub const JVM_SIGNATURE_ARRAY    : &str =  "[";

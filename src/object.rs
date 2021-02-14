@@ -4,7 +4,7 @@ use crate::value::Value;
 use crate::types::Type;
 
 pub struct Object {
-    hashCode: i32,
+    hash_code: i32,
     class: Rc<Class>,
     // TODO monitor
     slots: Vec<Box<Value>>
@@ -15,25 +15,25 @@ pub struct Reference {
 }
 
 impl Value for Reference {
-    fn getType(&self) -> &dyn Type {
+    fn get_type(&self) -> &dyn Type {
         unimplemented!()
     }
 }
 
 impl Reference {
-    fn isNull(&self) -> bool {
+    fn is_null(&self) -> bool {
         self.oop.is_none()
     }
 
-    fn isArray(&self) -> bool {
+    fn is_array(&self) -> bool {
         unimplemented!()
     }
 
-    fn isEqual(&self, reference: &Reference) -> bool {
-        if self.isNull() && reference.isNull() {
+    fn is_equal(&self, reference: &Reference) -> bool {
+        if self.is_null() && reference.is_null() {
             return true
         }
-        if !self.isNull() && !reference.isNull() {
+        if !self.is_null() && !reference.is_null() {
             return Rc::ptr_eq(
                 self.oop.as_ref().unwrap(),
                 reference.oop.as_ref().unwrap());

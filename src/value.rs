@@ -9,13 +9,13 @@ use crate::types::DoubleType::DOUBLE_TYPE;
 use crate::types::FloatType::FLOAT_TYPE;
 
 pub trait Value {
-    fn getType(&self) -> &Type;
+    fn get_type(&self) -> &Type;
 }
 
 pub type Byte = i8;
 
 impl Value for Byte {
-    fn getType(&self) -> &dyn Type {
+    fn get_type(&self) -> &dyn Type {
         &BYTE_TYPE
     }
 }
@@ -23,7 +23,7 @@ impl Value for Byte {
 pub type Short = i16;
 
 impl Value for Short {
-    fn getType(&self) -> &dyn Type {
+    fn get_type(&self) -> &dyn Type {
         &SHORT_TYPE
     }
 }
@@ -31,7 +31,7 @@ impl Value for Short {
 pub type Char = u16;
 
 impl Value for Char {
-    fn getType(&self) -> &dyn Type {
+    fn get_type(&self) -> &dyn Type {
         &CHAR_TYPE
     }
 }
@@ -39,7 +39,7 @@ impl Value for Char {
 pub type Int = i32;
 
 impl Value for Int {
-    fn getType(&self) -> &dyn Type {
+    fn get_type(&self) -> &dyn Type {
         &INT_TYPE
     }
 }
@@ -47,7 +47,7 @@ impl Value for Int {
 pub type Long = i64;
 
 impl Value for Long {
-    fn getType(&self) -> &dyn Type {
+    fn get_type(&self) -> &dyn Type {
         &LONG_TYPE
     }
 }
@@ -55,7 +55,7 @@ impl Value for Long {
 pub type Float = f32;
 
 impl Value for Float {
-    fn getType(&self) -> &dyn Type {
+    fn get_type(&self) -> &dyn Type {
         &FLOAT_TYPE
     }
 }
@@ -63,7 +63,7 @@ impl Value for Float {
 pub type Double = f64;
 
 impl Value for Double {
-    fn getType(&self) -> &dyn Type {
+    fn get_type(&self) -> &dyn Type {
         &DOUBLE_TYPE
     }
 }
@@ -71,7 +71,7 @@ impl Value for Double {
 pub type Boolean = bool;
 
 impl Value for Boolean {
-    fn getType(&self) -> &dyn Type {
+    fn get_type(&self) -> &dyn Type {
         &BOOLEAN_TYPE
     }
 }
