@@ -575,6 +575,20 @@ impl MethodInfo {
     fn with_capacity(buffer: &mut Buffer, constant_pool: &ConstantPool, method_count: u2) -> Vec<Self> {
         (0..method_count).map(|_| MethodInfo::from(buffer, &constant_pool)).collect()
     }
+
+    pub fn find_code_attribute(&self) -> &CodeAttribute {
+        let found = self.attributes.iter().find_map(|attribute| {
+            if let AttributeInfo::Code(code_attribute) = attribute {
+                Some(code_attribute)
+            } else {
+                None
+            }
+        });
+        if found.is_none() {
+            panic!("Code attribute not found")
+        }
+        found.unwrap()
+    }
 }
 
 /*
@@ -721,6 +735,36 @@ pub struct  CodeAttribute {
     pub(crate) exception_table: Vec<ExceptionTableEntry>,
     pub(crate) attributes_count: u2,
     pub(crate) attributes: Vec<AttributeInfo>
+}
+
+impl CodeAttribute {
+    pub fn find_local_variable_table_attribute(&self) -> &LocalVariableTableAttribute {
+        let found = self.attributes.iter().find_map(|attribute| {
+            if let AttributeInfo::LocalVariableTable(local_variable_table_attribute) = attribute {
+                Some(local_variable_table_attribute)
+            } else {
+                None
+            }
+        });
+        if found.is_none() {
+            panic!("LocalVariableTable attribute not found")
+        }
+        found.unwrap()
+    }
+
+    pub fn find_line_number_table_attribute(&self) -> &LineNumberTableAttribute {
+        let found = self.attributes.iter().find_map(|attribute| {
+            if let AttributeInfo::LineNumberTable(line_number_table) = attribute {
+                Some(line_number_table)
+            } else {
+                None
+            }
+        });
+        if found.is_none() {
+            panic!("LineNumberTable attribute not found")
+        }
+        found.unwrap()
+    }
 }
 
 pub struct ExceptionTableEntry {

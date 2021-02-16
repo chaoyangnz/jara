@@ -8,7 +8,7 @@ mod object;
 mod class_file;
 
 fn main() {
-    let classfile = class_file::read("/Users/chao.yang/Private/javo/example/HelloWorld.class");
+    let classfile = class_file::read("./java/HelloWorld.class");
     let class = Class::from(&classfile);
     println!("{}", "ok");
 }

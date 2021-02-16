@@ -89,52 +89,77 @@ pub struct Class {
 fn uninitialized_class() -> Rc<Class> {
     unsafe { Rc::<Class>::from_raw(null()) }
 }
+fn uninitialized_method() -> Rc<Method> {
+    unsafe { Rc::<Method>::from_raw(null()) }
+}
 
 impl Class {
     pub(crate) fn from(classfile: &ClassFile) -> Self {
         let cp =  &classfile.constant_pool;
         let constant_pool_len = classfile.constant_pool_count as usize;
         let constant_pool= (0..constant_pool_len).map(|i| Constant::from(i, cp)).collect();
-        let mut field_slot = 0;
-        let fields = classfile.fields.iter().map(|field_info| {
-            let slot = field_slot;
-            field_slot += 1;
+        let fields = classfile.fields.iter().enumerate().map(|(i, field_info)|
             Field {
                 access_flags: field_info.access_flags,
                 name: cp.resolve_utf8(field_info.name_index),
                 descriptor: cp.resolve_utf8(field_info.descriptor_index),
                 class: uninitialized_class(),
-                slot
+                slot: i as u32
             }
-        }).collect();
+        ).collect();
 
-        let mut method_slot = 0;
-        let methods = classfile.methods.iter().map(|method_info| {
-            let slot = method_slot;
-            method_slot += 1;
-            let mut code_attribute_option = Option::None;
-            method_info.attributes.iter().for_each(|attribute| {
-                match attribute {
-                    AttributeInfo::Code(code_attribute) => {
-                        code_attribute_option = Option::Some(code_attribute);
-                    },
-                    _ => {}
+        let methods = classfile.methods.iter().enumerate().map(|(i, method_info)| {
+            let code_attribute = method_info.find_code_attribute();
+            let exceptions = code_attribute.exception_table.iter().map(|exception_entry|
+                ExceptionHandler {
+                    start_pc: exception_entry.start_pc,
+                    end_pc: exception_entry.end_pc,
+                    handler_pc: exception_entry.handle_pc,
+                    catch_type: cp.resolve_class(exception_entry.catch_type)
                 }
-            });
-            let code_attribute = code_attribute_option.unwrap();
+            ).collect();
+            let local_variable_table_attribute = code_attribute.find_local_variable_table_attribute();
+            let local_vars = local_variable_table_attribute.local_variable_table.iter().map(|local_variable_entry|
+                LocalVariable {
+                    method: uninitialized_method(),
+                    start_pc: local_variable_entry.start_pc,
+                    length: local_variable_entry.length,
+                    index: local_variable_entry.index,
+                    name: cp.resolve_utf8(local_variable_entry.name_index),
+                    descriptor: cp.resolve_utf8(local_variable_entry.descriptor_index)
+                }
+            ).collect();
+            let line_number_table_attribute = code_attribute.find_line_number_table_attribute();
+            let line_numbers = line_number_table_attribute.line_number_table.iter().map(|line_number_entry|
+                LineNumber {
+                    start_pc: line_number_entry.start_pc,
+                    line_number: line_number_entry.line_number
+                }
+            ).collect();
+
+            let descriptor = cp.resolve_utf8(method_info.descriptor_index);
+            //(vv,)v
+            assert!(descriptor.starts_with("("));
+            let params_and_return: Vec<&str> = descriptor.split(')').collect();
+            assert_eq!(params_and_return.len(), 2);
+            let mut params = params_and_return[0].to_string();
+            params.remove(0);
+            let parameter_descriptors = vec![params]; // TODO
+            let return_descriptor = params_and_return[1].to_string();
+
             Method {
                 access_flags: method_info.access_flags,
                 name: cp.resolve_utf8(method_info.name_index),
-                descriptor: cp.resolve_utf8(method_info.descriptor_index),
+                descriptor,
                 class: uninitialized_class(),
                 max_stack: code_attribute.max_stack as u32,
                 max_locals: code_attribute.max_locals as u32,
                 code: code_attribute.code.to_vec(),
-                exceptions: vec![],
-                local_vars: vec![],
-                line_numbers: vec![],
-                parameter_descriptors: vec![],
-                return_descriptor: vec![]
+                exceptions,
+                local_vars,
+                line_numbers,
+                parameter_descriptors,
+                return_descriptor
             }
         }).collect();
         Class {
@@ -174,7 +199,7 @@ pub struct Field {
     index of instanceFields or staticFields
     for instance fields, it is the global index considering superclass hierarchy
     */
-    slot: i32
+    slot: u32
 }
 
 pub struct Method {
@@ -191,7 +216,7 @@ pub struct Method {
     line_numbers: Vec<LineNumber>,
 
     parameter_descriptors: Vec<String>,
-    return_descriptor:     Vec<String>
+    return_descriptor:     String
 }
 
 #[derive(EnumAsInner)]
@@ -257,10 +282,10 @@ impl Constant {
 }
 
 pub struct ExceptionHandler {
-    start_pc:   i32,
-    end_pc:     i32,
-    handler_pc: i32,
-    catch_type: i32 // index of constant pool: ClassRef
+    start_pc:   u16,
+    end_pc:     u16,
+    handler_pc: u16,
+    catch_type: String // index of constant pool: ClassRef
 }
 
 pub struct LocalVariable {
@@ -273,6 +298,6 @@ pub struct LocalVariable {
 }
 
 pub struct LineNumber {
-    start_pc:    i32,
-    line_number: i32
+    start_pc:    u16,
+    line_number: u16
 }
